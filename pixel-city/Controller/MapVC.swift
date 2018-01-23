@@ -48,6 +48,9 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
         collectionView?.dataSource = self
         collectionView?.backgroundColor = #colorLiteral(red: 0.09019608051, green: 0, blue: 0.3019607961, alpha: 1)
         pullUpView.addSubview(collectionView!)
+        
+            //register for previewing, tell handler where to get source data from -- 3D Touch
+        registerForPreviewing(with: self, sourceView: collectionView!)
     }
 
     func addDoubleTap() {
@@ -267,6 +270,30 @@ extension MapVC: UICollectionViewDelegate, UICollectionViewDataSource   {
         present(popVC, animated: true, completion: nil)
         
     }
+}
+
+//#D Touch Abilities
+extension MapVC: UIViewControllerPreviewingDelegate {
+        //Set up display VC
+      //When you press all the way through to present ViewContoller
+    func previewingContext(_ previewingContext: UIViewControllerPreviewing, viewControllerForLocation location: CGPoint) -> UIViewController? {
+        //Where we are pressing on cell
+        guard let indexPath = collectionView?.indexPathForItem(at: location), let cell = collectionView?.cellForItem(at: indexPath) else    {return nil}
+        
+        guard let popVC = storyboard?.instantiateViewController(withIdentifier: "PopVC") as? PopVC else { return nil}
+        popVC.initData(forImage: imageArray[indexPath.row])
+        
+            //previewing context -- set up size when previewing is presented
+        previewingContext.sourceRect = cell.contentView.frame
+        return popVC
+    }
+       // Where the peak of pressing light shows a preview
+    func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
+        show(viewControllerToCommit, sender: self)
+    }
+    
+    
+    
     
 }
 

@@ -10,7 +10,16 @@ import Foundation
 
 typealias NeworkingSuccess = (_ Success: Bool) -> ()
 
-let authorization_URL = "https://api.instagram.com/oauth/authorize/?client_id=CLIENT-ID&redirect_uri=REDIRECT-URI&response_type=code"
+
+let API_KEY = ""
+
+func flickrUrl(forApiKey key: String, withAnnotation annotation: DroppablePin, andNumberOfPhotos number: Int) -> String {
+    return "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=\(key)&lat=\(annotation.coordinate.latitude)&lon=\(annotation.coordinate.longitude)&raduis=1&raduis_units=mi&per_page=\(number)&&format=json&nojsoncallback=1"
+}
+
+
+    //Instagram API
+/*let authorization_URL = "https://api.instagram.com/oauth/authorize/?client_id=CLIENT-ID&redirect_uri=REDIRECT-URI&response_type=code"
 
 
 
@@ -18,11 +27,4 @@ func instagramAuthorizationUrl(forApiClientID id: String, redirectUrl: String) -
     
     let auth_url = "https://api.instagram.com/oauth/authorize/?client_id=\(id)&redirect_uri=\(redirectUrl)&response_type=code"
     return auth_url
-}
-
-
-//User Defaults
-let LOGGED_IN_KEY = "loggedIn"
-let TOKEN_KEY = "token"
-let USER_EMAIL = "userEmail"
-
+}*/

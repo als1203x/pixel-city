@@ -9,6 +9,8 @@
 import UIKit
 import MapKit
 import CoreLocation
+import Alamofire
+import AlamofireImage
 
 
 class MapVC: UIViewController, UIGestureRecognizerDelegate {
@@ -29,6 +31,10 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
     var flowLayout = UICollectionViewFlowLayout() // need this to create collectionView programmatically
     var collectionView: UICollectionView?
     
+    var imageUrlArray = [String]()
+    
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
@@ -42,8 +48,6 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
         collectionView?.dataSource = self
         collectionView?.backgroundColor = #colorLiteral(red: 0.09019608051, green: 0, blue: 0.3019607961, alpha: 1)
         pullUpView.addSubview(collectionView!)
-    
-      print(instagramAuthorizationUrl(forApiClientID: "466e7a39879043089bf7f8747d66803a", redirectUrl: "www.arc.ninja"))
     }
 
     func addDoubleTap() {
@@ -105,6 +109,23 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
         }
     }
     
+        //REstrieve urls of the images
+    func retrieveUrls(forAnnotation annotation: DroppablePin,  handler: @escaping NeworkingSuccess)  {
+        imageUrlArray = []
+            //This allows us to pass in a String an URL
+        Alamofire.request(flickrUrl(forApiKey: API_KEY, withAnnotation: annotation, andNumberOfPhotos: 40)).responseJSON { (response) in
+            guard let json = response.result.value as? Dictionary<String, AnyObject> else { return }
+            let photosDic = json["photos"] as! Dictionary<String, AnyObject>
+            let photoDicArray = photosDic["photo"] as! [Dictionary<String, AnyObject>]
+            for photo in photoDicArray {
+                let postUrl = "https://farm\(photo["farm"]!).staticflickr.com/\(photo["server"]!)/\(photo["id"]!)_\(photo["secret"]!)_h_d.jpg"
+                self.imageUrlArray.append(postUrl)
+            }
+            handler(true)
+        }
+        
+        
+    }
     
     
     
@@ -158,6 +179,10 @@ extension MapVC: MKMapViewDelegate  {
         
         let coordinateRegion = MKCoordinateRegionMakeWithDistance(touchCoordinate, regionRadius * 2.0, regionRadius * 2.0)
         mapView.setRegion(coordinateRegion, animated: true)
+        
+        retrieveUrls(forAnnotation: pinAnnotation) { (true) in
+            
+        }
     }
     
     func removePin()    {

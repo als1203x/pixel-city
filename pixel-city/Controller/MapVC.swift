@@ -15,14 +15,16 @@ import AlamofireImage
 
 class MapVC: UIViewController, UIGestureRecognizerDelegate {
 
+    // MARK: - IBOutlets
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var pullUpView: UIView!
     @IBOutlet weak var pullUpViewHeightConstraint: NSLayoutConstraint!
 
+    //  MARK: - Variables
     var locationManager = CLLocationManager()
-    
     let authorizationStatus = CLLocationManager.authorizationStatus() // returns Int32
     let regionRadius: Double = 1000
+    
     var screenSize = UIScreen.main.bounds
     
     var spinner: UIActivityIndicatorView?
@@ -33,7 +35,8 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
     
     var imageUrlArray = [String]()
     var imageArray = [UIImage]()
-    
+    var imageTitleArray = [String]()
+    var imageOwnerArray = [String]()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -41,16 +44,18 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
         mapView.delegate = self
         configureLocationServices()
         addDoubleTap()
+        centerMapOnUserLocation()
         
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: flowLayout)
         collectionView?.register(PhotoCell.self, forCellWithReuseIdentifier: "photoCell")
         collectionView?.delegate = self
         collectionView?.dataSource = self
-        collectionView?.backgroundColor = #colorLiteral(red: 0.09019608051, green: 0, blue: 0.3019607961, alpha: 1)
-        pullUpView.addSubview(collectionView!)
-        
+        collectionView?.backgroundColor = #colorLiteral(red: 0.1764705926, green: 0.4980392158, blue: 0.7568627596, alpha: 1)
+       
             //register for previewing, tell handler where to get source data from -- 3D Touch
         registerForPreviewing(with: self, sourceView: collectionView!)
+        
+        pullUpView.addSubview(collectionView!)
     }
 
     func addDoubleTap() {
@@ -62,7 +67,7 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
     }
     
     func addSwipe() {
-        let swipe = UISwipeGestureRecognizer(target: self, action: #selector(animateViewDown))
+        let swipe = UISwipeGestureRecognizer(target: self, action: #selector(MapVC.animateViewDown))
         swipe.direction = .down
         pullUpView.addGestureRecognizer(swipe)
     }
@@ -112,48 +117,7 @@ class MapVC: UIViewController, UIGestureRecognizerDelegate {
         }
     }
     
-        //REstrieve urls of the images
-    func retrieveUrls(forAnnotation annotation: DroppablePin,  handler: @escaping NeworkingSuccess)  {
-            //This allows us to pass in a String an URL
-        Alamofire.request(flickrUrl(forApiKey: API_KEY, withAnnotation: annotation, andNumberOfPhotos: 40)).responseJSON { (response) in
-            guard let json = response.result.value as? Dictionary<String, AnyObject> else { return }
-            let photosDic = json["photos"] as! Dictionary<String, AnyObject>
-            let photoDicArray = photosDic["photo"] as! [Dictionary<String, AnyObject>]
-            for photo in photoDicArray {
-                let postUrl = "https://farm\(photo["farm"]!).staticflickr.com/\(photo["server"]!)/\(photo["id"]!)_\(photo["secret"]!)_h_d.jpg"
-                self.imageUrlArray.append(postUrl)
-            }
-            handler(true)
-        }
-    }
-    
-        //Retrieve images
-    func retrieveImages(handler: @escaping NeworkingSuccess)    {
-            for url in imageUrlArray    {
-            Alamofire.request(url).responseImage(completionHandler: { (response) in
-                guard let image = response.result.value else { return }
-                self.imageArray.append(image)
-                self.progressLbl?.text = "\(self.imageArray.count)/40 IMAGES DOWNLOADED"
-                
-                if self.imageArray.count == self.imageUrlArray.count    {
-                    handler(true)
-                }
-            })
-        }
-    }
-    
-    func cancelAllSessions()    {
-        Alamofire.SessionManager.default.session.getTasksWithCompletionHandler { (sessionDataTask, uploadData, downloadData) in
-                //placeholder for every instance
-            sessionDataTask.forEach({ $0.cancel() })
-            downloadData.forEach({ $0.cancel() })
-        }
-    }
-    
-    
-    
-    
-    
+    // MARK: - IBAction
     @IBAction func locationBtnPressed(_ sender: UIButton) {
         if authorizationStatus == .authorizedAlways || authorizationStatus == .authorizedWhenInUse  {
             centerMapOnUserLocation()
@@ -167,12 +131,13 @@ extension MapVC: MKMapViewDelegate  {
         if annotation is MKUserLocation {
             return nil
         }
+        
         let pinAnnotation = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "droppablePin")
         pinAnnotation.pinTintColor = #colorLiteral(red: 0.9771530032, green: 0.7062081099, blue: 0.1748393774, alpha: 1)
         pinAnnotation.animatesDrop = true
+        
         return pinAnnotation
     }
-    
     
         // Zoom on user location
     func centerMapOnUserLocation()  {
@@ -180,15 +145,16 @@ extension MapVC: MKMapViewDelegate  {
         let coordinateRegion = MKCoordinateRegionMakeWithDistance(coordinate, regionRadius * 2.0, regionRadius * 2.0)
         mapView.setRegion(coordinateRegion, animated: true)
     }
-    
+        //selector method to drop pin on doubleTap
     @objc func dropPin(sender: UITapGestureRecognizer)  {
         removePin()
         removeSpinner()
         removeProgressLbl()
         cancelAllSessions()
+    
+        clearPhotoArrays()
         
-        imageUrlArray = []
-        imageArray = []
+        
         collectionView?.reloadData()
         
         animatedViewUp()
@@ -206,6 +172,7 @@ extension MapVC: MKMapViewDelegate  {
         let pinAnnotation = DroppablePin(coordinate: touchCoordinate, identifier: "droppablePin")
         mapView.addAnnotation(pinAnnotation)
         
+            //center map on pin
         let coordinateRegion = MKCoordinateRegionMakeWithDistance(touchCoordinate, regionRadius * 2.0, regionRadius * 2.0)
         mapView.setRegion(coordinateRegion, animated: true)
         
@@ -225,6 +192,56 @@ extension MapVC: MKMapViewDelegate  {
     func removePin()    {
         for annotation in mapView.annotations   {
             mapView.removeAnnotation(annotation)
+        }
+    }
+    
+    //Restrieve urls of the images
+    func retrieveUrls(forAnnotation annotation: DroppablePin,  handler: @escaping NeworkingSuccess)  {
+        //This allows us to pass in a String an URL
+        Alamofire.request(flickrUrl(forApiKey: API_KEY, withAnnotation: annotation, andNumberOfPhotos: 40)).responseJSON { (response) in
+            print(response)
+            guard let json = response.result.value as? Dictionary<String, AnyObject> else { return }
+            let photosDic = json["photos"] as! Dictionary<String, AnyObject>
+            let photoDicArray = photosDic["photo"] as! [Dictionary<String, AnyObject>]
+            for photo in photoDicArray {
+                let postUrl = "https://farm\(photo["farm"]!).staticflickr.com/\(photo["server"]!)/\(photo["id"]!)_\(photo["secret"]!)_h_d.jpg"
+                self.imageTitleArray.append("\(photo["title"]!)")
+                self.imageOwnerArray.append("\(photo["owner"]!)")
+    
+                self.imageUrlArray.append(postUrl)
+            }
+            handler(true)
+        }
+    }
+    
+    //Retrieve images
+    func retrieveImages(handler: @escaping NeworkingSuccess)    {
+        for url in imageUrlArray    {
+            Alamofire.request(url).responseImage(completionHandler: { (response) in
+                guard let image = response.result.value else { return }
+                self.imageArray.append(image)
+                self.progressLbl?.text = "\(self.imageArray.count)/40 IMAGES DOWNLOADED"
+                
+                if self.imageArray.count == self.imageUrlArray.count    {
+                    handler(true)
+                }
+            })
+        }
+    }
+    
+    
+    func clearPhotoArrays() {
+        imageUrlArray = []
+        imageArray = []
+        imageTitleArray = []
+        imageOwnerArray = []
+    }
+    
+    func cancelAllSessions()    {
+        Alamofire.SessionManager.default.session.getTasksWithCompletionHandler { (sessionDataTask, uploadData, downloadData) in
+            //placeholder for every instance
+            sessionDataTask.forEach({ $0.cancel() })
+            downloadData.forEach({ $0.cancel() })
         }
     }
 }
@@ -261,27 +278,28 @@ extension MapVC: UICollectionViewDelegate, UICollectionViewDataSource   {
         let imageView = UIImageView(image: imageFromIndex)
             //add subview
         cell.addSubview(imageView)
+        imageView.frame = cell.frame
+        imageView.contentMode = .scaleAspectFill
         return cell
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let popVC = storyboard?.instantiateViewController(withIdentifier: "PopVC") as? PopVC else { return }
-        popVC.initData(forImage: imageArray[indexPath.row])
+        popVC.initData(forImage: imageArray[indexPath.row], title: imageTitleArray[indexPath.row], owner: imageOwnerArray[indexPath.row])
         present(popVC, animated: true, completion: nil)
-        
     }
 }
 
-//#D Touch Abilities
+    //3D Touch Abilities
 extension MapVC: UIViewControllerPreviewingDelegate {
         //Set up display VC
       //When you press all the way through to present ViewContoller
     func previewingContext(_ previewingContext: UIViewControllerPreviewing, viewControllerForLocation location: CGPoint) -> UIViewController? {
         //Where we are pressing on cell
         guard let indexPath = collectionView?.indexPathForItem(at: location), let cell = collectionView?.cellForItem(at: indexPath) else    {return nil}
-        
         guard let popVC = storyboard?.instantiateViewController(withIdentifier: "PopVC") as? PopVC else { return nil}
-        popVC.initData(forImage: imageArray[indexPath.row])
+       
+        popVC.initData(forImage: imageArray[indexPath.row], title: imageTitleArray[indexPath.row], owner: imageOwnerArray[indexPath.row])
         
             //previewing context -- set up size when previewing is presented
         previewingContext.sourceRect = cell.contentView.frame
@@ -291,9 +309,5 @@ extension MapVC: UIViewControllerPreviewingDelegate {
     func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
         show(viewControllerToCommit, sender: self)
     }
-    
-    
-    
-    
 }
 
